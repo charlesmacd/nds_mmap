@@ -14,7 +14,9 @@
 #include <stdio.h>
 #include <ctype.h>
 
+#define START_ADDRESS	0xFFFF0000
 const int buffer_size = 16;
+const int screen_rows = 24;
 
 volatile bool running;
 volatile int frame;
@@ -26,7 +28,7 @@ volatile bool update;
 
 void igotoxy(uint8_t x, uint8_t y)
 {
-	char buf[16];
+	char buf[20];
 	sprintf(buf, "\x1b[%d;%dH", x, y);
 	iprintf(buf);
 }	
@@ -69,8 +71,8 @@ void reset_viewer(void)
 	running = true;
 	frame = 0;
 	nibble_select = 0;
-	base_address = 0xffff0000;
-	for(int i = 0; i < 16; i++)
+	base_address = START_ADDRESS;
+	for(int i = 0; i < buffer_size; i++)
 		buffer[i] = 0xdeadbeef;
 	update = true;
 }
@@ -117,11 +119,13 @@ void Vblank()
 	/* A = Re-read memory and print */
 	if(key_delta & KEY_A)
 	{
-		for(int i = 0; i < 16; i++)
+		/* Clear out buffer */
+		for(int i = 0; i < buffer_size; i++)
 			buffer[i] = 0xdeadbeef;
 		
+		/* Read new data into buffer */
 		uint32_t *p = (uint32 *)base_address;
-		for(int i = 0; i < 16; i++)
+		for(int i = 0; i < buffer_size; i++)
 			buffer[i] = p[i];
 
 		update = true;
@@ -130,14 +134,14 @@ void Vblank()
 	/* RTrg = Increment by one page */
 	if(key_delta & KEY_R)
 	{
-		base_address += 0x10;
+		base_address += buffer_size;
 		update = true;
 	}
 
 	/* LTrg = Decrement by one page */
 	if(key_delta & KEY_L)
 	{
-		base_address -= 0x10;
+		base_address -= buffer_size;
 		update = true;
 	}
 
@@ -170,7 +174,7 @@ void print_banners(void)
 	igotoxy(0, 0);
 	iprintf("ARM9 memory map viewer\n");
 
-	igotoxy(24-4, 0);
+	igotoxy(screen_rows-4, 0);
 	iprintf("L/R = Select nibble\n");
 	iprintf("U/D = Change nibble\n");
 	iprintf("A   = Read memory\n");
